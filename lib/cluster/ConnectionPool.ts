@@ -88,10 +88,12 @@ export default class ConnectionPool extends EventEmitter {
       this.nodes[readOnly ? "slave" : "master"][key] = redis;
 
       redis.once("end", () => {
-        this.removeNode(key);
-        this.emit("-node", redis, key);
-        if (!Object.keys(this.nodes.all).length) {
-          this.emit("drain");
+        const nodeRemoved = this.removeNode(key);
+        if (nodeRemoved) {
+          this.emit("-node", redis, key);
+          if (!Object.keys(this.nodes.all).length) {
+            this.emit("drain");
+          }
         }
       });
 
@@ -138,13 +140,16 @@ export default class ConnectionPool extends EventEmitter {
   /**
    * Remove a node from the pool.
    */
-  private removeNode(key: string): void {
+  private removeNode(key: string): boolean {
     const { nodes } = this;
+    let result = false;
     if (nodes.all[key]) {
+      result = true;
       debug("Remove %s from the pool", key);
       delete nodes.all[key];
     }
     delete nodes.master[key];
     delete nodes.slave[key];
+    return result;
   }
 }
